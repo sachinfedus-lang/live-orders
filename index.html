@@ -2,36 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Orders Dashboard - Stable</title>
+    <title>Order Dashboard - Final Fix</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        header { display: flex; justify-content: space-between; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 20px; }
-        .status { padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 14px; }
-        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background: #2080b0; color: white; }
-        tr:nth-child(even) { background: #f9f9f9; }
+        body { font-family: sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
+        .container { max-width: 1100px; margin: auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; }
+        .status-tag { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+        canvas { max-height: 250px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #eee; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background: #2080b0; color: white; font-weight: 600; }
+        tr:hover { background-color: #f9f9f9; }
+        .btn { padding: 8px 16px; background: #2080b0; color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>📦 Order Dashboard</h1>
+        <div class="header">
+            <h1>📦 Orders Dashboard</h1>
             <div>
-                <span id="syncStatus" class="status" style="background: #ffeeba;">Connecting...</span>
-                <button onclick="fetchData()" style="margin-left:10px; cursor:pointer; padding:5px 15px;">Manual Refresh</button>
+                <span id="syncStatus" class="status-tag" style="background: #ffeeba;">Checking Data...</span>
+                <button class="btn" onclick="loadData()" style="margin-left: 10px;">Refresh</button>
             </div>
-        </header>
-
-        <div class="charts">
-            <canvas id="pChart"></canvas>
-            <canvas id="dChart"></canvas>
         </div>
 
-        <div style="overflow-x:auto;">
+        <div class="charts">
+            <div><canvas id="productChart"></canvas></div>
+            <div><canvas id="dateChart"></canvas></div>
+        </div>
+
+        <div style="overflow-x: auto;">
             <table>
                 <thead>
                     <tr>
@@ -43,76 +45,71 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr><td colspan="5" style="text-align:center;">Loading your data...</td></tr>
+                    <tr><td colspan="5" style="text-align:center;">Loading orders...</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // DIRECT LINK TO CSV
-        const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKL1joEjDMsya8-4dlRMU8NPE7PR_gEQr-LaYu-pyL57JjE7TsQQr3vO9CZ6z6qApNgcK-_oIU4lng/pub?output=csv';
-        
+        // Your specific Google Sheet CSV URL
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKL1joEjDMsya8-4dlRMU8NPE7PR_gEQr-LaYu-pyL57JjE7TsQQr3vO9CZ6z6qApNgcK-_oIU4lng/pub?output=csv';
+
         let pChart, dChart;
 
-        async function fetchData() {
+        async function loadData() {
             const status = document.getElementById('syncStatus');
             try {
-                // Try direct fetch first
-                const response = await fetch(SHEET_CSV + '&cache=' + Date.now());
-                const csvText = await response.text();
+                // Fetching with 'no-cache' to ensure we get the latest data
+                const response = await fetch(csvUrl, { cache: "no-store" });
+                const text = await response.text();
                 
-                // If Google blocks direct fetch, use backup proxy
-                if (csvText.includes('<!DOCTYPE html>')) {
-                    throw new Error("Direct fetch blocked");
+                // Security check: If we get HTML instead of CSV, it's a login screen or error
+                if (text.trim().startsWith("<!DOCTYPE")) {
+                    throw new Error("Sheet not published correctly");
                 }
 
-                processData(csvText);
+                const rows = parseData(text);
+                updateUI(rows);
+                
+                status.innerText = "ONLINE: " + new Date().toLocaleTimeString();
+                status.style.background = "#d4edda";
+                status.style.color = "#155724";
             } catch (err) {
-                // BACKUP PROXY
-                try {
-                    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(SHEET_CSV);
-                    const res = await fetch(proxyUrl);
-                    const json = await res.json();
-                    processData(json.contents);
-                } catch (e) {
-                    status.innerText = "Sync Failed";
-                    status.style.background = "#f8d7da";
-                }
+                console.error(err);
+                status.innerText = "Sync Error - Check Sheet Publication";
+                status.style.background = "#f8d7da";
+                status.style.color = "#721c24";
             }
         }
 
-        function processData(csvText) {
-            const status = document.getElementById('syncStatus');
+        function parseData(csvText) {
             const lines = csvText.trim().split('\n');
             const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
             
+            // Map headers to column index
             const dIdx = headers.indexOf('DATE');
             const nIdx = headers.indexOf('NAME');
             const pIdx = headers.indexOf('PRODUCT');
             const cIdx = headers.indexOf('CONTACT');
             const rIdx = headers.indexOf('REVIEW');
 
-            const data = lines.slice(1).map(line => {
-                const f = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+            return lines.slice(1).map(line => {
+                const cells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
                 return {
-                    date: (f[dIdx] || "").replace(/"/g, '').trim(),
-                    name: (f[nIdx] || "").replace(/"/g, '').trim(),
-                    product: (f[pIdx] || "").replace(/"/g, '').trim(),
-                    contact: (f[cIdx] || "").replace(/"/g, '').trim(),
-                    review: (f[rIdx] || "").replace(/"/g, '').trim()
+                    date: (cells[dIdx] || "").replace(/"/g, '').trim(),
+                    name: (cells[nIdx] || "").replace(/"/g, '').trim(),
+                    product: (cells[pIdx] || "").replace(/"/g, '').trim(),
+                    contact: (cells[cIdx] || "").replace(/"/g, '').trim(),
+                    review: (cells[rIdx] || "").replace(/"/g, '').trim()
                 };
-            }).filter(r => r.name);
-
-            renderTable(data);
-            renderCharts(data);
-            
-            status.innerText = "LIVE: " + new Date().toLocaleTimeString();
-            status.style.background = "#d4edda";
+            }).filter(r => r.name); // Ignore empty lines
         }
 
-        function renderTable(data) {
-            document.getElementById('tableBody').innerHTML = data.map(r => `
+        function updateUI(data) {
+            // Update Table
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = data.map(r => `
                 <tr>
                     <td>${r.date}</td>
                     <td>${r.name}</td>
@@ -121,29 +118,39 @@
                     <td>${r.review}</td>
                 </tr>
             `).join('');
-        }
 
-        function renderCharts(data) {
-            const pMap = {}, dMap = {};
+            // Data for Charts
+            const products = {};
+            const dates = {};
             data.forEach(r => {
-                if(r.product) pMap[r.product] = (pMap[r.product] || 0) + 1;
-                if(r.date) dMap[r.date] = (dMap[r.date] || 0) + 1;
+                products[r.product] = (products[r.product] || 0) + 1;
+                dates[r.date] = (dates[r.date] || 0) + 1;
             });
 
+            // Update Product Chart
             if (pChart) pChart.destroy();
-            pChart = new Chart(document.getElementById('pChart'), {
+            pChart = new Chart(document.getElementById('productChart'), {
                 type: 'bar',
-                data: { labels: Object.keys(pMap).slice(0,5), datasets: [{ label: 'Sales', data: Object.values(pMap).slice(0,5), backgroundColor: '#2080b0' }] }
+                data: {
+                    labels: Object.keys(products).slice(0, 5),
+                    datasets: [{ label: 'Sales by Product', data: Object.values(products).slice(0, 5), backgroundColor: '#2080b0' }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
             });
 
+            // Update Date Chart
             if (dChart) dChart.destroy();
-            dChart = new Chart(document.getElementById('dChart'), {
+            dChart = new Chart(document.getElementById('dateChart'), {
                 type: 'line',
-                data: { labels: Object.keys(dMap), datasets: [{ label: 'Orders', data: Object.values(dMap), borderColor: '#2080b0' }] }
+                data: {
+                    labels: Object.keys(dates),
+                    datasets: [{ label: 'Daily Orders', data: Object.values(dates), borderColor: '#2080b0', tension: 0.2 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
-        window.onload = fetchData;
+        window.onload = loadData;
     </script>
 </body>
 </html>
