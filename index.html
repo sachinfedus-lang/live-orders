@@ -2,20 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Order Dashboard - Final Fix</title>
+    <title>Order Dashboard - Search & Top 10</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
-        .container { max-width: 1100px; margin: auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .container { max-width: 1200px; margin: auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; }
         .status-tag { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        
+        /* Search Bar Styling */
+        .search-container { margin-bottom: 20px; }
+        #searchInput { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; outline: none; }
+        #searchInput:focus { border-color: #2080b0; box-shadow: 0 0 5px rgba(32,128,176,0.3); }
+        
         .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-        canvas { max-height: 250px; }
+        .chart-box { border: 1px solid #eee; padding: 15px; border-radius: 10px; background: #fdfdfd; }
+        canvas { max-height: 300px; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; border: 1px solid #eee; }
         th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-        th { background: #2080b0; color: white; font-weight: 600; }
+        th { background: #2080b0; color: white; font-weight: 600; position: sticky; top: 0; }
         tr:hover { background-color: #f9f9f9; }
         .btn { padding: 8px 16px; background: #2080b0; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #1a6a8f; }
     </style>
 </head>
 <body>
@@ -23,17 +32,27 @@
         <div class="header">
             <h1>📦 Orders Dashboard</h1>
             <div>
-                <span id="syncStatus" class="status-tag" style="background: #ffeeba;">Checking Data...</span>
-                <button class="btn" onclick="loadData()" style="margin-left: 10px;">Refresh</button>
+                <span id="syncStatus" class="status-tag" style="background: #ffeeba;">Connecting...</span>
+                <button class="btn" onclick="loadData()" style="margin-left: 10px;">Refresh Data</button>
             </div>
         </div>
 
-        <div class="charts">
-            <div><canvas id="productChart"></canvas></div>
-            <div><canvas id="dateChart"></canvas></div>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="🔍 Search by Name, Product, or Date (e.g. 20.09.2024)..." onkeyup="filterData()">
         </div>
 
-        <div style="overflow-x: auto;">
+        <div class="charts">
+            <div class="chart-box">
+                <h3 style="margin-top:0; color:#555;">🔥 Top 10 Best Selling Products</h3>
+                <canvas id="productChart"></canvas>
+            </div>
+            <div class="chart-box">
+                <h3 style="margin-top:0; color:#555;">📈 Daily Order Volume</h3>
+                <canvas id="dateChart"></canvas>
+            </div>
+        </div>
+
+        <div style="overflow-x: auto; max-height: 500px;">
             <table>
                 <thead>
                     <tr>
@@ -52,32 +71,30 @@
     </div>
 
     <script>
-        // Your specific Google Sheet CSV URL
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKL1joEjDMsya8-4dlRMU8NPE7PR_gEQr-LaYu-pyL57JjE7TsQQr3vO9CZ6z6qApNgcK-_oIU4lng/pub?output=csv';
 
         let pChart, dChart;
+        let allOrders = []; 
 
         async function loadData() {
             const status = document.getElementById('syncStatus');
             try {
-                // Fetching with 'no-cache' to ensure we get the latest data
                 const response = await fetch(csvUrl, { cache: "no-store" });
                 const text = await response.text();
                 
-                // Security check: If we get HTML instead of CSV, it's a login screen or error
                 if (text.trim().startsWith("<!DOCTYPE")) {
                     throw new Error("Sheet not published correctly");
                 }
 
-                const rows = parseData(text);
-                updateUI(rows);
+                allOrders = parseData(text);
+                updateUI(allOrders);
                 
                 status.innerText = "ONLINE: " + new Date().toLocaleTimeString();
                 status.style.background = "#d4edda";
                 status.style.color = "#155724";
             } catch (err) {
                 console.error(err);
-                status.innerText = "Sync Error - Check Sheet Publication";
+                status.innerText = "Sync Error";
                 status.style.background = "#f8d7da";
                 status.style.color = "#721c24";
             }
@@ -87,7 +104,6 @@
             const lines = csvText.trim().split('\n');
             const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
             
-            // Map headers to column index
             const dIdx = headers.indexOf('DATE');
             const nIdx = headers.indexOf('NAME');
             const pIdx = headers.indexOf('PRODUCT');
@@ -103,11 +119,22 @@
                     contact: (cells[cIdx] || "").replace(/"/g, '').trim(),
                     review: (cells[rIdx] || "").replace(/"/g, '').trim()
                 };
-            }).filter(r => r.name); // Ignore empty lines
+            }).filter(r => r.name && r.name !== "");
+        }
+
+        function filterData() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allOrders.filter(order => {
+                return (
+                    order.name.toLowerCase().includes(searchTerm) ||
+                    order.product.toLowerCase().includes(searchTerm) ||
+                    order.date.toLowerCase().includes(searchTerm)
+                );
+            });
+            updateUI(filtered);
         }
 
         function updateUI(data) {
-            // Update Table
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = data.map(r => `
                 <tr>
@@ -119,34 +146,64 @@
                 </tr>
             `).join('');
 
-            // Data for Charts
-            const products = {};
-            const dates = {};
+            updateCharts(data);
+        }
+
+        function updateCharts(data) {
+            const productCounts = {};
+            const dateCounts = {};
+            
             data.forEach(r => {
-                products[r.product] = (products[r.product] || 0) + 1;
-                dates[r.date] = (dates[r.date] || 0) + 1;
+                if(r.product) productCounts[r.product] = (productCounts[r.product] || 0) + 1;
+                if(r.date) dateCounts[r.date] = (dateCounts[r.date] || 0) + 1;
             });
 
-            // Update Product Chart
+            // LOGIC FOR TOP 10 PRODUCTS
+            const topProducts = Object.entries(productCounts)
+                .sort((a, b) => b[1] - a[1]) // Sort by count descending
+                .slice(0, 10);              // Take top 10
+
             if (pChart) pChart.destroy();
             pChart = new Chart(document.getElementById('productChart'), {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(products).slice(0, 5),
-                    datasets: [{ label: 'Sales by Product', data: Object.values(products).slice(0, 5), backgroundColor: '#2080b0' }]
+                    labels: topProducts.map(x => x[0]),
+                    datasets: [{ 
+                        label: 'Units Sold', 
+                        data: topProducts.map(x => x[1]), 
+                        backgroundColor: '#2080b0',
+                        borderRadius: 5
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    indexAxis: 'y', // Horizontal bar chart looks better for long names
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
             });
 
-            // Update Date Chart
+            const sortedDates = Object.entries(dateCounts).sort((a,b) => a[0].localeCompare(b[0]));
+
             if (dChart) dChart.destroy();
             dChart = new Chart(document.getElementById('dateChart'), {
                 type: 'line',
                 data: {
-                    labels: Object.keys(dates),
-                    datasets: [{ label: 'Daily Orders', data: Object.values(dates), borderColor: '#2080b0', tension: 0.2 }]
+                    labels: sortedDates.map(x => x[0]),
+                    datasets: [{ 
+                        label: 'Orders', 
+                        data: sortedDates.map(x => x[1]), 
+                        borderColor: '#2080b0', 
+                        backgroundColor: 'rgba(32,128,176,0.1)',
+                        fill: true,
+                        tension: 0.3 
+                    }]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } }
+                }
             });
         }
 
