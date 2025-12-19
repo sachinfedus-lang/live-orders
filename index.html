@@ -5,57 +5,62 @@
     <title>Customer Orders Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
-        .container { max-width: 1200px; margin: auto; background: #fff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        :root { --primary: #2080b0; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f0f0f0; margin-bottom: 25px; padding-bottom: 15px; }
-        .status-tag { padding: 8px 15px; border-radius: 30px; font-size: 13px; font-weight: bold; text-transform: uppercase; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        .status-box { padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
 
-        /* Search Section - Made more prominent */
-        .search-section { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px; border: 1px solid #e9ecef; }
-        #searchInput { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; transition: border-color 0.3s; }
-        #searchInput:focus { border-color: #2080b0; }
+        /* THE SEARCH BAR */
+        .search-area { margin-bottom: 25px; }
+        #searchInput { 
+            width: 100%; 
+            padding: 15px; 
+            border: 2px solid #ddd; 
+            border-radius: 8px; 
+            font-size: 16px; 
+            box-sizing: border-box;
+            outline: none;
+        }
+        #searchInput:focus { border-color: var(--primary); }
 
-        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
-        .chart-box { border: 1px solid #eee; padding: 20px; border-radius: 12px; background: #fff; height: 350px; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .chart-box { border: 1px solid #eee; padding: 15px; border-radius: 10px; height: 350px; }
         
-        .table-container { overflow-x: auto; max-height: 500px; border-radius: 10px; border: 1px solid #eee; }
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th { background: #2080b0; color: white; padding: 15px; text-align: left; position: sticky; top: 0; z-index: 10; }
-        td { padding: 12px 15px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
-        tr:hover { background-color: #f8fbff; }
-
-        .btn { padding: 10px 20px; background: #2080b0; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn:hover { background: #1a6a8f; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: var(--primary); color: white; padding: 12px; text-align: left; position: sticky; top: 0; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        tr:hover { background: #f9f9f9; }
+        .btn { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1 style="margin:0;">📦 Orders Analytics Dashboard</h1>
+            <h1>📊 Orders Analytics</h1>
             <div>
-                <span id="syncStatus" class="status-tag" style="background: #ffeeba; color: #856404;">Syncing...</span>
-                <button class="btn" onclick="loadData()" style="margin-left: 15px;">🔄 Refresh</button>
+                <span id="syncStatus" class="status-box" style="background: #ffeeba;">Connecting...</span>
+                <button class="btn" onclick="loadData()" style="margin-left:10px;">Refresh</button>
             </div>
         </div>
 
-        <div class="search-section">
-            <label for="searchInput" style="display:block; margin-bottom:10px; font-weight:bold; color:#555;">Live Filter:</label>
-            <input type="text" id="searchInput" placeholder="Type a Name, Product name, or Date (e.g., 20.09.2024)..." onkeyup="filterData()">
+        <div class="search-area">
+            <input type="text" id="searchInput" placeholder="🔍 Search by Name, Product, or Date..." onkeyup="filterData()">
         </div>
 
         <div class="charts">
             <div class="chart-box">
-                <h3 style="margin-top:0;">🔥 Top 10 Best Selling Products</h3>
+                <h3 style="margin-top:0;">Top 10 Selling Products</h3>
                 <canvas id="productChart"></canvas>
             </div>
             <div class="chart-box">
-                <h3 style="margin-top:0;">📈 Order Frequency by Date</h3>
+                <h3 style="margin-top:0;">Orders by Date</h3>
                 <canvas id="dateChart"></canvas>
             </div>
         </div>
 
-        <div class="table-container">
+        <div style="overflow-x:auto; max-height: 500px;">
             <table>
                 <thead>
                     <tr>
@@ -67,7 +72,7 @@
                     </tr>
                 </thead>
                 <tbody id="tableBody">
-                    <tr><td colspan="5" style="text-align:center; padding:40px;">Initializing dashboard components...</td></tr>
+                    <tr><td colspan="5" style="text-align:center;">Fetching data from Google Sheets...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -75,35 +80,35 @@
 
     <script>
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKL1joEjDMsya8-4dlRMU8NPE7PR_gEQr-LaYu-pyL57JjE7TsQQr3vO9CZ6z6qApNgcK-_oIU4lng/pub?output=csv';
-
+        
+        let allOrders = [];
         let pChart, dChart;
-        let allOrders = []; 
 
         async function loadData() {
             const status = document.getElementById('syncStatus');
             try {
-                const response = await fetch(csvUrl, { cache: "no-store" });
+                const response = await fetch(csvUrl + '&cache=' + new Date().getTime());
                 const text = await response.text();
                 
-                if (text.trim().startsWith("<!DOCTYPE")) throw new Error("Format Error");
+                if (text.includes("<!DOCTYPE")) throw new Error("Format error");
 
-                allOrders = parseData(text);
+                allOrders = parseCSV(text);
                 updateUI(allOrders);
                 
-                status.innerText = "● LIVE: " + new Date().toLocaleTimeString();
+                status.innerText = "ONLINE: " + new Date().toLocaleTimeString();
                 status.style.background = "#d4edda";
                 status.style.color = "#155724";
             } catch (err) {
-                status.innerText = "Sync Error";
+                status.innerText = "Sync Failed";
                 status.style.background = "#f8d7da";
-                status.style.color = "#721c24";
             }
         }
 
-        function parseData(csvText) {
+        function parseCSV(csvText) {
             const lines = csvText.trim().split('\n');
             const headers = lines[0].split(',').map(h => h.trim().toUpperCase());
             
+            // Exact column mapping based on your sheet
             const dIdx = headers.indexOf('DATE');
             const nIdx = headers.indexOf('NAME');
             const pIdx = headers.indexOf('PRODUCT');
@@ -119,91 +124,64 @@
                     contact: (cells[cIdx] || "").replace(/"/g, '').trim(),
                     review: (cells[rIdx] || "").replace(/"/g, '').trim()
                 };
-            }).filter(r => r.name);
+            }).filter(row => row.name !== "");
         }
 
         function filterData() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allOrders.filter(order => {
-                return (
-                    order.name.toLowerCase().includes(searchTerm) ||
-                    order.product.toLowerCase().includes(searchTerm) ||
-                    order.date.toLowerCase().includes(searchTerm)
-                );
-            });
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allOrders.filter(o => 
+                o.name.toLowerCase().includes(term) || 
+                o.product.toLowerCase().includes(term) || 
+                o.date.toLowerCase().includes(term)
+            );
             updateUI(filtered);
         }
 
         function updateUI(data) {
             const tbody = document.getElementById('tableBody');
-            if(data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No matching records found.</td></tr>';
-            } else {
-                tbody.innerHTML = data.map(r => `
-                    <tr>
-                        <td>${r.date}</td>
-                        <td>${r.name}</td>
-                        <td>${r.product}</td>
-                        <td>${r.contact}</td>
-                        <td><span style="background:#eee; padding:2px 8px; border-radius:4px; font-size:11px;">${r.review}</span></td>
-                    </tr>
-                `).join('');
-            }
+            tbody.innerHTML = data.map(r => `
+                <tr>
+                    <td>${r.date}</td>
+                    <td>${r.name}</td>
+                    <td>${r.product}</td>
+                    <td>${r.contact}</td>
+                    <td>${r.review}</td>
+                </tr>
+            `).join('');
+            
             updateCharts(data);
         }
 
         function updateCharts(data) {
-            const productCounts = {};
-            const dateCounts = {};
-            
+            const pCounts = {};
+            const dCounts = {};
             data.forEach(r => {
-                if(r.product) productCounts[r.product] = (productCounts[r.product] || 0) + 1;
-                if(r.date) dateCounts[r.date] = (dateCounts[r.date] || 0) + 1;
+                pCounts[r.product] = (pCounts[r.product] || 0) + 1;
+                dCounts[r.date] = (dCounts[r.date] || 0) + 1;
             });
 
-            // TOP 10 LOGIC
-            const topProducts = Object.entries(productCounts)
-                .sort((a, b) => b[1] - a[1]) 
-                .slice(0, 10);
+            // Top 10 Products Logic
+            const top10 = Object.entries(pCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
 
             if (pChart) pChart.destroy();
             pChart = new Chart(document.getElementById('productChart'), {
                 type: 'bar',
                 data: {
-                    labels: topProducts.map(x => x[0].length > 20 ? x[0].substring(0,20)+'...' : x[0]),
-                    datasets: [{ 
-                        label: 'Qty Sold', 
-                        data: topProducts.map(x => x[1]), 
-                        backgroundColor: '#2080b0'
-                    }]
+                    labels: top10.map(x => x[0]),
+                    datasets: [{ label: 'Sales', data: top10.map(x => x[1]), backgroundColor: '#2080b0' }]
                 },
-                options: { 
-                    indexAxis: 'y', 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
+                options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
             });
 
-            const sortedDates = Object.entries(dateCounts).sort();
+            const sortedDates = Object.entries(dCounts).sort();
             if (dChart) dChart.destroy();
             dChart = new Chart(document.getElementById('dateChart'), {
                 type: 'line',
                 data: {
                     labels: sortedDates.map(x => x[0]),
-                    datasets: [{ 
-                        label: 'Orders', 
-                        data: sortedDates.map(x => x[1]), 
-                        borderColor: '#2080b0',
-                        fill: false,
-                        tension: 0.1 
-                    }]
+                    datasets: [{ label: 'Orders', data: sortedDates.map(x => x[1]), borderColor: '#2080b0', fill: false }]
                 },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
 
