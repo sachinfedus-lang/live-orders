@@ -2,177 +2,180 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Compact Master Database</title>
+    <title>Live Order Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary: #2080b0; --bg: #f4f7f6; --border: #e0e0e0; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; }
-        .container { background: white; padding: 12px; border-radius: 6px; box-shadow: 0 1px 5px rgba(0,0,0,0.1); }
+        :root { --primary: #2080b0; --amazon: #ff9900; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1400px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        h2 { margin: 0; font-size: 18px; color: var(--primary); }
+        .summary-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
+        .stat-card { padding: 20px; border-radius: 10px; color: white; text-align: center; }
+        .bg-total { background: var(--primary); }
+        .bg-amazon { background: var(--amazon); }
+        .bg-others { background: #6c757d; }
+        .stat-card h2 { margin: 0; font-size: 28px; }
+        .stat-card p { margin: 5px 0 0; opacity: 0.9; font-weight: bold; }
 
-        .stats-grid { display: flex; gap: 10px; margin-bottom: 10px; }
-        .stat-card { flex: 1; padding: 8px; border-radius: 4px; color: white; text-align: center; min-width: 120px; }
-        .stat-card h3 { margin: 0; font-size: 18px; }
-        .stat-card p { margin: 0; font-size: 11px; font-weight: bold; }
-
-        #searchInput { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; }
-
-        /* Compact Table Logic */
-        .table-wrap { 
-            overflow: auto; 
-            max-height: 75vh; 
-            border: 1px solid var(--border); 
-            background: white; 
-        }
-        
-        table { 
-            border-collapse: separate; 
-            border-spacing: 0; 
-            font-size: 11.5px; 
-            width: max-content; /* Critical: Table only takes as much space as text needs */
-        }
-
-        th, td { 
-            padding: 6px 12px; 
-            border-bottom: 1px solid var(--border); 
-            border-right: 1px solid var(--border);
-            white-space: nowrap; 
-            text-align: left;
-        }
-
-        /* Sticky Header */
-        th { 
-            background: #f8f9fa; 
-            position: sticky; 
-            top: 0; 
-            z-index: 20; 
-            font-weight: 600;
-            color: #555;
-            box-shadow: inset 0 -1px 0 var(--border);
-        }
-
-        /* Sticky First Column (Order of Purchase) */
-        td:first-child, th:first-child {
-            position: sticky;
-            left: 0;
-            z-index: 10;
-            background: #fff;
-            border-right: 2px solid var(--border);
-        }
-        th:first-child { z-index: 30; background: #f8f9fa; }
-
-        tr:hover td { background: #f0f7ff !important; }
-
-        /* Specific Widths for long text columns */
-        .col-address { white-space: normal; width: 200px; max-width: 250px; font-size: 10.5px; }
-        .col-product { white-space: normal; width: 180px; max-width: 220px; }
-
-        .tag { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        #searchInput { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; outline: none; margin-bottom: 25px; }
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+        .chart-box { border: 1px solid #eee; padding: 20px; border-radius: 10px; height: 350px; background: #fff; }
+        .table-wrap { overflow-x: auto; max-height: 500px; border: 1px solid #eee; border-radius: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: var(--primary); color: white; padding: 15px; text-align: left; position: sticky; top: 0; z-index: 10; }
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+        tr:hover { background: #f1f8ff; }
+        .btn { padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .status-box { padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .link-cell a { color: #2080b0; text-decoration: none; font-weight: bold; border: 1px solid #2080b0; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .link-cell a:hover { background: #2080b0; color: white; }
     </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Live Order Analytics</h1>
+            <div>
+                <span id="syncStatus" class="status-box" style="background: #ffeeba;">Connecting...</span>
+                <button class="btn" onclick="loadData()" style="margin-left:15px;">Refresh Data</button>
+            </div>
+        </div>
 
-<div class="container">
-    <div class="header">
-        <h2>📑 Compact Master Sales Database</h2>
-        <button onclick="loadData()" style="padding:4px 10px; cursor:pointer;">Refresh</button>
+        <div class="summary-stats">
+            <div class="stat-card bg-total"><h2 id="countTotal">0</h2><p>Total Submissions</p></div>
+            <div class="stat-card bg-amazon"><h2 id="countAmazon">0</h2><p>Amazon Orders</p></div>
+            <div class="stat-card bg-others"><h2 id="countOthers">0</h2><p>Other Platforms</p></div>
+        </div>
+
+        <input type="text" id="searchInput" placeholder="🔍 Search Name, Platform, Order ID, or Phone..." onkeyup="filterData()">
+
+        <div class="charts">
+            <div class="chart-box"><h3 style="margin:0 0 10px 0; color:#555;">Submission Timeline</h3><canvas id="dateChart"></canvas></div>
+            <div class="chart-box"><h3 style="margin:0 0 10px 0; color:#555;">Platform Breakdown</h3><canvas id="platformChart"></canvas></div>
+        </div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Your Name</th>
+                        <th>Phone</th>
+                        <th>Order id</th>
+                        <th>Proof of Purchase</th>
+                        <th>Email address</th>
+                        <th>Platform</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="7" style="text-align:center; padding:40px;">Loading Live Data...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <div class="stats-grid">
-        <div class="stat-card" style="background:#2080b0;"><h3 id="t1">0</h3><p>TOTAL ENTRIES</p></div>
-        <div class="stat-card" style="background:#27ae60;"><h3 id="t2">0</h3><p>GOOGLE FORM</p></div>
-        <div class="stat-card" style="background:#f39c12;"><h3 id="t3">0</h3><p>ACTIVE STATUS</p></div>
-    </div>
+    <script>
+        const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTecHMkMX9O7rf5hOQwvanr0HiG7VldFkP-flRPj3D16eFajd_udakNBQbjZofks3fpsUpMGtWNCYvf/pub?output=csv';
+        
+        let allOrders = [];
+        let dChart, pChart;
 
-    <input type="text" id="searchInput" placeholder="Search by any field..." onkeyup="filterData()">
-
-    <div class="table-wrap">
-        <table id="masterTable">
-            <thead>
-                <tr>
-                    <th>Order of Purchase</th>
-                    <th>Purchase Date</th>
-                    <th>Entry By</th>
-                    <th>Source</th>
-                    <th>Sold-By</th>
-                    <th>Order ID</th>
-                    <th>Customer Name</th>
-                    <th>Email</th>
-                    <th>Address</th>
-                    <th>Product Name</th>
-                    <th>ASIN</th>
-                    <th>Invoice No.</th>
-                    <th>Mobile</th>
-                    <th>Option 1</th>
-                    <th>Option 0</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS2kyBpEWbTdDbogAQd-tCp2LupNSVmS238MINv1eZJ8UyHtId8sMBvNrvA49wH8XQ_-K0lLvw3gK82/pub?output=csv';
-    let rawData = [];
-
-    async function loadData() {
-        try {
-            const res = await fetch(csvUrl + '&cb=' + Date.now());
-            const text = await res.text();
-            rawData = text.trim().split('\n').slice(1).map(line => {
-                const c = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-                return {
-                    a: (c[0]||'').replace(/"/g,''), b: (c[1]||'').replace(/"/g,''),
-                    c: (c[2]||'').replace(/"/g,''), d: (c[3]||'').replace(/"/g,''),
-                    e: (c[4]||'').replace(/"/g,''), f: (c[5]||'').replace(/"/g,''),
-                    g: (c[6]||'').replace(/"/g,''), h: (c[7]||'').replace(/"/g,''),
-                    i: (c[8]||'').replace(/"/g,''), j: (c[9]||'').replace(/"/g,''),
-                    k: (c[10]||'').replace(/"/g,''), l: (c[11]||'').replace(/"/g,''),
-                    m: (c[12]||'').replace(/"/g,''), n: (c[13]||'').replace(/"/g,''),
-                    o: (c[14]||'').replace(/"/g,''), p: (c[15]||'').replace(/"/g,'')
-                };
-            }).filter(x => x.f || x.g);
-            render(rawData);
-        } catch (e) { console.error(e); }
-    }
-
-    function filterData() {
-        const val = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = rawData.filter(r => Object.values(r).some(v => v.toLowerCase().includes(val)));
-        render(filtered, true);
-    }
-
-    function render(data, isFilt = false) {
-        const body = document.getElementById('tableBody');
-        body.innerHTML = data.map(r => `
-            <tr>
-                <td>${r.a}</td><td>${r.b}</td><td>${r.c}</td><td>${r.d}</td><td>${r.e}</td>
-                <td style="color:#2080b0; font-weight:600;">${r.f}</td>
-                <td>${r.g}</td><td>${r.h}</td>
-                <td class="col-address">${r.i}</td>
-                <td class="col-product">${r.j}</td>
-                <td>${r.k}</td><td>${r.l}</td><td>${r.m}</td><td>${r.n}</td><td>${r.o}</td>
-                <td><span class="tag" style="background:${getClr(r.p)}">${r.p}</span></td>
-            </tr>
-        `).join('');
-        if(!isFilt) {
-            document.getElementById('t1').innerText = data.length;
-            document.getElementById('t2').innerText = data.filter(x => x.d.toUpperCase().includes('GOOGLE')).length;
-            document.getElementById('t3').innerText = data.filter(x => ['YES','REP','DONE'].includes(x.p.toUpperCase())).length;
+        async function loadData() {
+            const status = document.getElementById('syncStatus');
+            try {
+                const response = await fetch(csvUrl + '&cb=' + new Date().getTime());
+                const text = await response.text();
+                allOrders = parseCSV(text);
+                updateUI(allOrders);
+                status.innerText = "ONLINE: " + new Date().toLocaleTimeString();
+                status.style.background = "#d4edda";
+                status.style.color = "#155724";
+            } catch (err) {
+                status.innerText = "Connection Error";
+                status.style.background = "#f8d7da";
+                status.style.color = "#721c24";
+            }
         }
-    }
 
-    function getClr(s) {
-        const v = s.toUpperCase();
-        if(v==='YES'||v==='DONE') return '#d4edda';
-        if(v==='REP'||v==='SEND LINK') return '#fff3cd';
-        if(v.includes('NOT')) return '#f8d7da';
-        return '#eee';
-    }
-    window.onload = loadData;
-</script>
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            // Matching the columns exactly: A:Timestamp, B:Name, C:Phone, D:OrderId, E:Invoice, F:Email, G:Platform
+            return lines.slice(1).map(line => {
+                const cells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                return {
+                    timestamp: (cells[0] || "").replace(/"/g, '').trim(),
+                    name: (cells[1] || "").replace(/"/g, '').trim(),
+                    phone: (cells[2] || "").replace(/"/g, '').trim(),
+                    orderId: (cells[3] || "").replace(/"/g, '').trim(),
+                    invoice: (cells[4] || "").replace(/"/g, '').trim(),
+                    email: (cells[5] || "").replace(/"/g, '').trim(),
+                    platform: (cells[6] || "").replace(/"/g, '').trim()
+                };
+            }).filter(row => row.name !== "");
+        }
+
+        function filterData() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allOrders.filter(o => Object.values(o).some(val => val.toLowerCase().includes(term)));
+            updateUI(filtered, true);
+        }
+
+        function updateUI(data, isFiltering = false) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = data.map(r => `
+                <tr>
+                    <td style="color:#888; font-size:12px;">${r.timestamp}</td>
+                    <td><strong>${r.name}</strong></td>
+                    <td>${r.phone}</td>
+                    <td>${r.orderId}</td>
+                    <td class="link-cell">${r.invoice.startsWith('http') ? `<a href="${r.invoice}" target="_blank">View File</a>` : 'No File'}</td>
+                    <td>${r.email}</td>
+                    <td><span style="background:#eee; padding:3px 8px; border-radius:12px; font-weight:bold;">${r.platform}</span></td>
+                </tr>
+            `).join('');
+            if(!isFiltering) updateSummary(data);
+            updateCharts(data);
+        }
+
+        function updateSummary(data) {
+            const amazonCount = data.filter(o => o.platform.toLowerCase().includes('amazon')).length;
+            document.getElementById('countTotal').innerText = data.length;
+            document.getElementById('countAmazon').innerText = amazonCount;
+            document.getElementById('countOthers').innerText = data.length - amazonCount;
+        }
+
+        function updateCharts(data) {
+            const dateCounts = {};
+            const platformCounts = {};
+            data.forEach(r => {
+                const date = r.timestamp.split(' ')[0] || "Unknown";
+                dateCounts[date] = (dateCounts[date] || 0) + 1;
+                platformCounts[r.platform] = (platformCounts[r.platform] || 0) + 1;
+            });
+            const sortedDates = Object.entries(dateCounts).sort((a,b) => a[0].localeCompare(b[0]));
+
+            if (dChart) dChart.destroy();
+            dChart = new Chart(document.getElementById('dateChart'), {
+                type: 'line',
+                data: {
+                    labels: sortedDates.map(x => x[0]),
+                    datasets: [{ label: 'Submissions', data: sortedDates.map(x => x[1]), borderColor: '#2080b0', fill: true, backgroundColor: 'rgba(32,128,176,0.1)', tension: 0.3 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+
+            if (pChart) pChart.destroy();
+            pChart = new Chart(document.getElementById('platformChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(platformCounts),
+                    datasets: [{ label: 'Orders', data: Object.values(platformCounts), backgroundColor: ['#6c757d', '#ff9900', '#2080b0'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
+        window.onload = loadData;
+    </script>
 </body>
 </html>
