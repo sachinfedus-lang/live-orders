@@ -1,66 +1,94 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Master Order Management System</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Compact Master Database</title>
     <style>
-        :root { --primary: #2080b0; --bg: #f0f2f5; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; }
-        .container { max-width: 100%; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        :root { --primary: #2080b0; --bg: #f4f7f6; --border: #e0e0e0; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #333; }
+        .container { background: white; padding: 12px; border-radius: 6px; box-shadow: 0 1px 5px rgba(0,0,0,0.1); }
         
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-        .status-pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
-        
-        /* Summary Section */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 15px; }
-        .stat-card { padding: 12px; border-radius: 6px; color: white; text-align: center; }
-        .bg-blue { background: #2080b0; }
-        .bg-green { background: #27ae60; }
-        .bg-orange { background: #f39c12; }
-        .stat-card h2 { margin: 0; font-size: 20px; }
-        .stat-card p { margin: 2px 0 0; font-size: 12px; opacity: 0.9; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        h2 { margin: 0; font-size: 18px; color: var(--primary); }
 
-        #searchInput { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; margin-bottom: 15px; box-sizing: border-box; }
+        .stats-grid { display: flex; gap: 10px; margin-bottom: 10px; }
+        .stat-card { flex: 1; padding: 8px; border-radius: 4px; color: white; text-align: center; min-width: 120px; }
+        .stat-card h3 { margin: 0; font-size: 18px; }
+        .stat-card p { margin: 0; font-size: 11px; font-weight: bold; }
 
-        /* Optimized Table Styling to Reduce Gaps */
-        .table-container { overflow-x: auto; max-height: 70vh; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
-        table { width: auto; min-width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
+        #searchInput { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; }
+
+        /* Compact Table Logic */
+        .table-wrap { 
+            overflow: auto; 
+            max-height: 75vh; 
+            border: 1px solid var(--border); 
+            background: white; 
+        }
         
-        th { background: #f4f7f9; color: #333; padding: 8px 10px; text-align: left; border-bottom: 2px solid #dee2e6; border-right: 1px solid #eee; position: sticky; top: 0; z-index: 10; white-space: nowrap; }
-        td { padding: 6px 10px; border-bottom: 1px solid #eee; border-right: 1px solid #f9f9f9; white-space: nowrap; color: #444; }
-        
-        /* Column Specific Constraints to prevent wide gaps */
-        .col-long { white-space: normal; min-width: 150px; max-width: 250px; line-height: 1.4; }
-        .col-id { font-weight: bold; color: #2080b0; }
-        
-        tr:hover { background: #f8fbff; }
-        
-        .busy-tag { padding: 2px 6px; border-radius: 3px; font-weight: bold; text-transform: uppercase; font-size: 10px; display: inline-block; }
+        table { 
+            border-collapse: separate; 
+            border-spacing: 0; 
+            font-size: 11.5px; 
+            width: max-content; /* Critical: Table only takes as much space as text needs */
+        }
+
+        th, td { 
+            padding: 6px 12px; 
+            border-bottom: 1px solid var(--border); 
+            border-right: 1px solid var(--border);
+            white-space: nowrap; 
+            text-align: left;
+        }
+
+        /* Sticky Header */
+        th { 
+            background: #f8f9fa; 
+            position: sticky; 
+            top: 0; 
+            z-index: 20; 
+            font-weight: 600;
+            color: #555;
+            box-shadow: inset 0 -1px 0 var(--border);
+        }
+
+        /* Sticky First Column (Order of Purchase) */
+        td:first-child, th:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background: #fff;
+            border-right: 2px solid var(--border);
+        }
+        th:first-child { z-index: 30; background: #f8f9fa; }
+
+        tr:hover td { background: #f0f7ff !important; }
+
+        /* Specific Widths for long text columns */
+        .col-address { white-space: normal; width: 200px; max-width: 250px; font-size: 10.5px; }
+        .col-product { white-space: normal; width: 180px; max-width: 220px; }
+
+        .tag { padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h2 style="margin:0;">📑 Master Sales Database</h2>
-        <div>
-            <span id="syncStatus" class="status-pill" style="background: #ffeeba;">Connecting...</span>
-            <button onclick="loadData()" style="margin-left:8px; cursor:pointer; font-size:12px; padding:4px 8px;">🔄 Refresh</button>
-        </div>
+        <h2>📑 Compact Master Sales Database</h2>
+        <button onclick="loadData()" style="padding:4px 10px; cursor:pointer;">Refresh</button>
     </div>
 
     <div class="stats-grid">
-        <div class="stat-card bg-blue"><h2 id="totalOrders">0</h2><p>Total Entries</p></div>
-        <div class="stat-card bg-green"><h2 id="totalGoogle">0</h2><p>Google Form</p></div>
-        <div class="stat-card bg-orange"><h2 id="totalBusy">0</h2><p>Active Status</p></div>
+        <div class="stat-card" style="background:#2080b0;"><h3 id="t1">0</h3><p>TOTAL ENTRIES</p></div>
+        <div class="stat-card" style="background:#27ae60;"><h3 id="t2">0</h3><p>GOOGLE FORM</p></div>
+        <div class="stat-card" style="background:#f39c12;"><h3 id="t3">0</h3><p>ACTIVE STATUS</p></div>
     </div>
 
-    <input type="text" id="searchInput" placeholder="🔍 Search any column..." onkeyup="filterData()">
+    <input type="text" id="searchInput" placeholder="Search by any field..." onkeyup="filterData()">
 
-    <div class="table-container">
-        <table>
+    <div class="table-wrap">
+        <table id="masterTable">
             <thead>
                 <tr>
                     <th>Order of Purchase</th>
@@ -75,110 +103,75 @@
                     <th>Product Name</th>
                     <th>ASIN</th>
                     <th>Invoice No.</th>
-                    <th>Mobile Number</th>
+                    <th>Mobile</th>
                     <th>Option 1</th>
                     <th>Option 0</th>
-                    <th>Busy/Status</th>
+                    <th>Status</th>
                 </tr>
             </thead>
-            <tbody id="tableBody">
-                <tr><td colspan="16" style="text-align:center; padding:30px;">Loading live data...</td></tr>
-            </tbody>
+            <tbody id="tableBody"></tbody>
         </table>
     </div>
 </div>
 
 <script>
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vS2kyBpEWbTdDbogAQd-tCp2LupNSVmS238MINv1eZJ8UyHtId8sMBvNrvA49wH8XQ_-K0lLvw3gK82/pub?output=csv';
-    let allData = [];
+    let rawData = [];
 
     async function loadData() {
-        const status = document.getElementById('syncStatus');
         try {
-            const response = await fetch(csvUrl + '&cb=' + new Date().getTime());
-            const text = await response.text();
-            allData = parseCSV(text);
-            renderUI(allData);
-            status.innerText = "● LIVE";
-            status.style.background = "#d4edda";
-            status.style.color = "#155724";
-        } catch (err) {
-            status.innerText = "OFFLINE";
-            status.style.background = "#f8d7da";
-        }
-    }
-
-    function parseCSV(csvText) {
-        const lines = csvText.trim().split('\n');
-        return lines.slice(1).map(line => {
-            const cells = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            return {
-                a: (cells[0] || "").replace(/"/g, '').trim(),
-                b: (cells[1] || "").replace(/"/g, '').trim(),
-                c: (cells[2] || "").replace(/"/g, '').trim(),
-                d: (cells[3] || "").replace(/"/g, '').trim(),
-                e: (cells[4] || "").replace(/"/g, '').trim(),
-                f: (cells[5] || "").replace(/"/g, '').trim(),
-                g: (cells[6] || "").replace(/"/g, '').trim(),
-                h: (cells[7] || "").replace(/"/g, '').trim(),
-                i: (cells[8] || "").replace(/"/g, '').trim(),
-                j: (cells[9] || "").replace(/"/g, '').trim(),
-                k: (cells[10] || "").replace(/"/g, '').trim(),
-                l: (cells[11] || "").replace(/"/g, '').trim(),
-                m: (cells[12] || "").replace(/"/g, '').trim(),
-                n: (cells[13] || "").replace(/"/g, '').trim(),
-                o: (cells[14] || "").replace(/"/g, '').trim(),
-                p: (cells[15] || "").replace(/"/g, '').trim()
-            };
-        }).filter(row => row.f !== "" || row.g !== "");
+            const res = await fetch(csvUrl + '&cb=' + Date.now());
+            const text = await res.text();
+            rawData = text.trim().split('\n').slice(1).map(line => {
+                const c = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+                return {
+                    a: (c[0]||'').replace(/"/g,''), b: (c[1]||'').replace(/"/g,''),
+                    c: (c[2]||'').replace(/"/g,''), d: (c[3]||'').replace(/"/g,''),
+                    e: (c[4]||'').replace(/"/g,''), f: (c[5]||'').replace(/"/g,''),
+                    g: (c[6]||'').replace(/"/g,''), h: (c[7]||'').replace(/"/g,''),
+                    i: (c[8]||'').replace(/"/g,''), j: (c[9]||'').replace(/"/g,''),
+                    k: (c[10]||'').replace(/"/g,''), l: (c[11]||'').replace(/"/g,''),
+                    m: (c[12]||'').replace(/"/g,''), n: (c[13]||'').replace(/"/g,''),
+                    o: (c[14]||'').replace(/"/g,''), p: (c[15]||'').replace(/"/g,'')
+                };
+            }).filter(x => x.f || x.g);
+            render(rawData);
+        } catch (e) { console.error(e); }
     }
 
     function filterData() {
-        const term = document.getElementById('searchInput').value.toLowerCase();
-        const filtered = allData.filter(row => 
-            Object.values(row).some(val => val.toLowerCase().includes(term))
-        );
-        renderUI(filtered, true);
+        const val = document.getElementById('searchInput').value.toLowerCase();
+        const filtered = rawData.filter(r => Object.values(r).some(v => v.toLowerCase().includes(val)));
+        render(filtered, true);
     }
 
-    function renderUI(data, isFiltering = false) {
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = data.map(r => `
+    function render(data, isFilt = false) {
+        const body = document.getElementById('tableBody');
+        body.innerHTML = data.map(r => `
             <tr>
-                <td>${r.a}</td>
-                <td>${r.b}</td>
-                <td>${r.c}</td>
-                <td>${r.d}</td>
-                <td>${r.e}</td>
-                <td class="col-id">${r.f}</td>
-                <td>${r.g}</td>
-                <td>${r.h}</td>
-                <td class="col-long">${r.i}</td>
-                <td class="col-long">${r.j}</td>
-                <td>${r.k}</td>
-                <td>${r.l}</td>
-                <td>${r.m}</td>
-                <td>${r.n}</td>
-                <td>${r.o}</td>
-                <td><span class="busy-tag" style="background:${getStatusColor(r.p)}">${r.p}</span></td>
+                <td>${r.a}</td><td>${r.b}</td><td>${r.c}</td><td>${r.d}</td><td>${r.e}</td>
+                <td style="color:#2080b0; font-weight:600;">${r.f}</td>
+                <td>${r.g}</td><td>${r.h}</td>
+                <td class="col-address">${r.i}</td>
+                <td class="col-product">${r.j}</td>
+                <td>${r.k}</td><td>${r.l}</td><td>${r.m}</td><td>${r.n}</td><td>${r.o}</td>
+                <td><span class="tag" style="background:${getClr(r.p)}">${r.p}</span></td>
             </tr>
         `).join('');
-
-        if(!isFiltering) {
-            document.getElementById('totalOrders').innerText = data.length;
-            document.getElementById('totalGoogle').innerText = data.filter(x => x.d.toUpperCase().includes('GOOGLE')).length;
-            document.getElementById('totalBusy').innerText = data.filter(x => ['YES','REP','DONE','SEND LINK'].includes(x.p.toUpperCase())).length;
+        if(!isFilt) {
+            document.getElementById('t1').innerText = data.length;
+            document.getElementById('t2').innerText = data.filter(x => x.d.toUpperCase().includes('GOOGLE')).length;
+            document.getElementById('t3').innerText = data.filter(x => ['YES','REP','DONE'].includes(x.p.toUpperCase())).length;
         }
     }
 
-    function getStatusColor(status) {
-        const s = status.toUpperCase();
-        if(s === 'YES' || s === 'DONE') return '#d4edda';
-        if(s === 'REP' || s === 'SEND LINK') return '#fff3cd';
-        if(s.includes('NOT') || s.includes('OUT')) return '#f8d7da';
+    function getClr(s) {
+        const v = s.toUpperCase();
+        if(v==='YES'||v==='DONE') return '#d4edda';
+        if(v==='REP'||v==='SEND LINK') return '#fff3cd';
+        if(v.includes('NOT')) return '#f8d7da';
         return '#eee';
     }
-
     window.onload = loadData;
 </script>
 </body>
