@@ -2,20 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Order Analytics - Updated</title>
+    <title>Live Order Analytics - Final Version</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #2080b0; --amazon: #ff9900; --others: #6c757d; --bg: #f8f9fa; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
         .container { max-width: 1400px; margin: auto; }
         
-        /* Header & Online Status */
+        /* Header & Status */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
         .header h1 { margin: 0; font-size: 28px; display: flex; align-items: center; gap: 10px; }
         .status-area { display: flex; align-items: center; gap: 15px; }
         .sync-pill { background: #d4edda; color: #155724; padding: 6px 15px; border-radius: 20px; font-size: 13px; font-weight: 600; border: 1px solid #c3e6cb; }
-        .refresh-btn { background: #2080b0; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: 0.2s; }
-        .refresh-btn:hover { background: #166085; }
+        .refresh-btn { background: #2080b0; color: white; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; }
 
         /* Summary Cards */
         .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
@@ -28,11 +27,16 @@
 
         /* Search Bar */
         .search-box { background: white; padding: 15px; border-radius: 10px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; }
-        #searchInput { width: 100%; border: none; font-size: 16px; outline: none; color: #555; background: transparent; }
+        #searchInput { width: 100%; border: none; font-size: 16px; outline: none; color: #555; }
+
+        /* Chart Section */
+        .charts-container { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 25px; }
+        .chart-box { background: white; padding: 20px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .chart-box h3 { margin: 0 0 15px 0; font-size: 18px; color: #444; }
 
         /* Data Table */
         .table-wrap { background: white; border-radius: 12px; border: 1px solid #eee; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        .table-scroll { overflow-x: auto; max-height: 600px; }
+        .table-scroll { overflow-x: auto; max-height: 500px; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; white-space: nowrap; }
         th { background: #fcfcfc; color: #666; font-weight: 600; padding: 15px; text-align: left; border-bottom: 2px solid #eee; position: sticky; top: 0; z-index: 5; }
         td { padding: 12px 15px; border-bottom: 1px solid #f5f5f5; color: #444; }
@@ -40,7 +44,6 @@
         
         .platform-tag { background: #eee; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
         .view-link { color: #2080b0; text-decoration: none; font-weight: bold; border: 1px solid #2080b0; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
-        .view-link:hover { background: #2080b0; color: white; }
     </style>
 </head>
 <body>
@@ -64,6 +67,13 @@
         <input type="text" id="searchInput" placeholder="🔍 Search Name, Product, Order ID, Phone, or Platform..." onkeyup="filterData()">
     </div>
 
+    <div class="charts-container">
+        <div class="chart-box">
+            <h3>Platform Breakdown</h3>
+            <canvas id="platformChart" style="max-height: 400px;"></canvas>
+        </div>
+    </div>
+
     <div class="table-wrap">
         <div class="table-scroll">
             <table>
@@ -76,11 +86,10 @@
                         <th>Invoice</th>
                         <th>Email address</th>
                         <th>Platform</th>
-                        <th>Product</th> </tr>
+                        <th>Product</th>
+                    </tr>
                 </thead>
-                <tbody id="tableBody">
-                    <tr><td colspan="8" style="text-align:center; padding:50px;">Fetching Live Records...</td></tr>
-                </tbody>
+                <tbody id="tableBody"></tbody>
             </table>
         </div>
     </div>
@@ -89,51 +98,38 @@
 <script>
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTecHMkMX9O7rf5hOQwvanr0HiG7VldFkP-flRPj3D16eFajd_udakNBQbjZofks3fpsUpMGtWNCYvf/pub?output=csv';
     let allOrders = [];
+    let pChart;
 
     async function loadData() {
         const status = document.getElementById('syncStatus');
         try {
-            // Cache buster included to ensure fresh data
             const response = await fetch(csvUrl + '&cb=' + new Date().getTime());
             const text = await response.text();
             allOrders = parseCSV(text);
             updateUI(allOrders);
-            
-            // Set Last Updated Time format from your screenshot
             const now = new Date();
             status.innerText = "ONLINE: " + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
-        } catch (err) {
-            status.innerText = "OFFLINE";
-            status.style.background = "#f8d7da";
-        }
+        } catch (err) { status.innerText = "OFFLINE"; }
     }
 
     function parseCSV(text) {
         const lines = text.trim().split('\n');
         return lines.slice(1).map(line => {
-            // Regex to handle commas inside quotes
             const c = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
             return {
-                ts: (c[0]||"").replace(/"/g,'').trim(),
-                nm: (c[1]||"").replace(/"/g,'').trim(),
-                ph: (c[2]||"").replace(/"/g,'').trim(),
-                id: (c[3]||"").replace(/"/g,'').trim(),
-                iv: (c[4]||"").replace(/"/g,'').trim(),
-                em: (c[5]||"").replace(/"/g,'').trim(),
-                pl: (c[6]||"").replace(/"/g,'').trim(),
-                pd: (c[7]||"").replace(/"/g,'').trim() // Column H: Product
+                ts: (c[0]||"").replace(/"/g,'').trim(), nm: (c[1]||"").replace(/"/g,'').trim(),
+                ph: (c[2]||"").replace(/"/g,'').trim(), id: (c[3]||"").replace(/"/g,'').trim(),
+                iv: (c[4]||"").replace(/"/g,'').trim(), em: (c[5]||"").replace(/"/g,'').trim(),
+                pl: (c[6]||"").replace(/"/g,'').trim(), pd: (c[7]||"").replace(/"/g,'').trim()
             };
         }).filter(r => r.nm !== "");
     }
 
     function filterData() {
         const val = document.getElementById('searchInput').value.toLowerCase();
-        // Updated filter to include 'pd' (Product)
         const filtered = allOrders.filter(o => 
-            o.nm.toLowerCase().includes(val) || 
-            o.pd.toLowerCase().includes(val) || 
-            o.id.toLowerCase().includes(val) || 
-            o.ph.toLowerCase().includes(val) ||
+            o.nm.toLowerCase().includes(val) || o.pd.toLowerCase().includes(val) || 
+            o.id.toLowerCase().includes(val) || o.ph.toLowerCase().includes(val) ||
             o.pl.toLowerCase().includes(val)
         );
         updateUI(filtered, true);
@@ -143,28 +139,53 @@
         const tbody = document.getElementById('tableBody');
         tbody.innerHTML = data.map(r => `
             <tr>
-                <td style="color:#888; font-size:12px;">${r.ts}</td>
+                <td style="color:#888;">${r.ts}</td>
                 <td><strong>${r.nm}</strong></td>
                 <td>${r.ph}</td>
                 <td style="color:#2080b0;">${r.id}</td>
                 <td>${r.iv.startsWith('http') ? `<a href="${r.iv}" target="_blank" class="view-link">View File</a>` : 'N/A'}</td>
                 <td>${r.em}</td>
                 <td><span class="platform-tag">${r.pl}</span></td>
-                <td><strong style="color:#444;">${r.pd}</strong></td>
+                <td><strong>${r.pd}</strong></td>
             </tr>
         `).join('');
 
         if(!isFilt) {
-            const amz = data.filter(o => o.pl.toLowerCase().includes('amazon')).length;
+            const platformCounts = {};
+            data.forEach(o => { platformCounts[o.pl] = (platformCounts[o.pl] || 0) + 1; });
+            
             document.getElementById('totalCount').innerText = data.length.toLocaleString();
-            document.getElementById('amazonCount').innerText = amz.toLocaleString();
-            document.getElementById('otherCount').innerText = (data.length - amz).toLocaleString();
+            document.getElementById('amazonCount').innerText = (platformCounts['Amazon'] || 0).toLocaleString();
+            document.getElementById('otherCount').innerText = (data.length - (platformCounts['Amazon'] || 0)).toLocaleString();
+            
+            renderChart(platformCounts);
         }
     }
 
-    // Auto-load when page opens
+    function renderChart(counts) {
+        if (pChart) pChart.destroy();
+        const ctx = document.getElementById('platformChart').getContext('2d');
+        pChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(counts),
+                datasets: [{
+                    label: 'Orders',
+                    data: Object.values(counts),
+                    backgroundColor: Object.keys(counts).map(k => k === 'Amazon' ? '#ff9900' : '#6c757d'),
+                    borderRadius: 5
+                }]
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, grid: { color: '#eee' } }, x: { grid: { display: false } } }
+            }
+        });
+    }
+
     window.onload = loadData;
 </script>
-
 </body>
 </html>
