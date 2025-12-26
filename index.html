@@ -7,7 +7,7 @@
     <style>
         :root { --primary: #2080b0; --amazon: #ff9900; --others: #6c757d; --bg: #f8f9fa; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 1400px; margin: auto; }
+        .container { max-width: 1500px; margin: auto; }
         
         /* Header & Status */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
@@ -33,24 +33,32 @@
         .chart-box { background: white; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-bottom: 20px; }
         .chart-box h3 { margin: 0 0 10px 0; font-size: 16px; color: #444; }
 
-        /* Data Table - FIXED WIDTHS */
+        /* Data Table - REFINED FOR LONG PRODUCT NAMES */
         .table-wrap { background: white; border-radius: 10px; border: 1px solid #eee; overflow: hidden; }
         .table-scroll { overflow-x: auto; max-height: 550px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; } /* table-layout fixed keeps columns tight */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; } 
         
-        th, td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        th, td { padding: 12px 10px; border-bottom: 1px solid #f0f0f0; text-align: left; }
         th { background: #fcfcfc; color: #666; font-weight: 600; position: sticky; top: 0; z-index: 5; border-bottom: 2px solid #eee; }
         
-        /* Specific Column Widths to prevent expansion */
-        .col-ts { width: 130px; }
-        .col-nm { width: 150px; }
-        .col-ph { width: 110px; }
-        .col-id { width: 140px; }
-        .col-iv { width: 80px; }
-        .col-em { width: 180px; }
-        .col-pl { width: 100px; }
-        .col-pd { width: 220px; }
-        .col-st { width: 150px; } /* State & Pin Code */
+        /* Fixed Column Widths */
+        .col-ts { width: 140px; } /* Timestamp */
+        .col-nm { width: 140px; } /* Name */
+        .col-ph { width: 110px; } /* Phone */
+        .col-id { width: 140px; } /* Order ID */
+        .col-iv { width: 80px;  } /* Invoice */
+        .col-em { width: 180px; } /* Email */
+        .col-pl { width: 100px; } /* Platform */
+        .col-pd { width: 250px; } /* Product - Increased width but fixed */
+        .col-st { width: 160px; } /* State & Pin */
+
+        /* Truncation Rule for long Product names */
+        .truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: block;
+        }
 
         tr:hover { background: #f8fbff; }
         .platform-tag { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
@@ -96,7 +104,8 @@
                         <th class="col-em">Email</th>
                         <th class="col-pl">Platform</th>
                         <th class="col-pd">Product</th>
-                        <th class="col-st">State & Pin</th> </tr>
+                        <th class="col-st">State & Pin</th> 
+                    </tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
             </table>
@@ -133,7 +142,7 @@
                 em: (c[5]||"").replace(/"/g,'').trim(),
                 pl: (c[6]||"").replace(/"/g,'').trim(),
                 pd: (c[7]||"").replace(/"/g,'').trim(),
-                st: (c[8]||"").replace(/"/g,'').trim() // Mapping Column I
+                st: (c[8]||"").replace(/"/g,'').trim()
             };
         }).filter(r => r.nm !== "");
     }
@@ -157,7 +166,7 @@
                 <td class="col-iv">${r.iv.startsWith('http') ? `<a href="${r.iv}" target="_blank" class="view-link">View</a>` : 'N/A'}</td>
                 <td class="col-em">${r.em}</td>
                 <td class="col-pl"><span class="platform-tag">${r.pl}</span></td>
-                <td class="col-pd" title="${r.pd}">${r.pd}</td>
+                <td class="col-pd"><span class="truncate" title="${r.pd}">${r.pd}</span></td>
                 <td class="col-st"><strong>${r.st}</strong></td>
             </tr>
         `).join('');
