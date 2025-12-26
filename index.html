@@ -2,93 +2,86 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Live Order Analytics - Pro Dashboard</title>
+    <title>Live Order Analytics - Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #2080b0; --amazon: #ff9900; --others: #6c757d; --bg: #f8f9fa; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 1500px; margin: auto; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #333; overflow-x: hidden; }
+        .container { max-width: 100%; margin: auto; }
         
-        /* Header & Status */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-        .header h1 { margin: 0; font-size: 26px; display: flex; align-items: center; gap: 10px; }
-        .status-area { display: flex; align-items: center; gap: 12px; }
-        .sync-pill { background: #d4edda; color: #155724; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid #c3e6cb; }
-        .refresh-btn { background: #2080b0; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 22px; display: flex; align-items: center; gap: 8px; }
+        .sync-pill { background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid #c3e6cb; }
+        .refresh-btn { background: #2080b0; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 12px; }
 
-        /* Summary Cards */
-        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-        .stat-card { padding: 20px; border-radius: 10px; color: white; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        .stat-card h2 { margin: 0; font-size: 32px; }
-        .stat-card p { margin: 5px 0 0; font-weight: 600; opacity: 0.9; font-size: 12px; text-transform: uppercase; }
+        .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px; }
+        .stat-card { padding: 15px; border-radius: 8px; color: white; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-card h2 { margin: 0; font-size: 26px; }
+        .stat-card p { margin: 2px 0 0; font-size: 11px; text-transform: uppercase; font-weight: 600; opacity: 0.9; }
         .bg-total { background: #2080b0; }
         .bg-amazon { background: #ff9900; }
         .bg-others { background: #6c757d; }
 
-        /* Search Bar */
-        .search-box { background: white; padding: 12px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; }
-        #searchInput { width: 100%; border: none; font-size: 15px; outline: none; }
+        .search-box { background: white; padding: 10px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #ddd; }
+        #searchInput { width: 100%; border: none; font-size: 14px; outline: none; }
 
-        /* Chart Section */
-        .chart-box { background: white; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-bottom: 20px; }
-        .chart-box h3 { margin: 0 0 10px 0; font-size: 16px; color: #444; }
-
-        /* Data Table - REFINED FOR LONG PRODUCT NAMES */
-        .table-wrap { background: white; border-radius: 10px; border: 1px solid #eee; overflow: hidden; }
-        .table-scroll { overflow-x: auto; max-height: 550px; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; } 
+        /* --- KEY FIX: Strict Table Layout --- */
+        .table-wrap { background: white; border-radius: 8px; border: 1px solid #eee; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .table-scroll { overflow-x: auto; max-height: 600px; }
         
-        th, td { padding: 12px 10px; border-bottom: 1px solid #f0f0f0; text-align: left; }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            font-size: 12px; 
+            table-layout: fixed; /* Forces browser to respect column widths strictly */
+        } 
+        
+        th, td { 
+            padding: 10px 8px; 
+            border-bottom: 1px solid #f0f0f0; 
+            text-align: left; 
+            white-space: nowrap; /* PREVENTS WRAPPING */
+            overflow: hidden;    /* HIDES OVERFLOW */
+            text-overflow: ellipsis; /* ADDS '...' */
+        }
+        
         th { background: #fcfcfc; color: #666; font-weight: 600; position: sticky; top: 0; z-index: 5; border-bottom: 2px solid #eee; }
         
-        /* Fixed Column Widths */
-        .col-ts { width: 140px; } /* Timestamp */
-        .col-nm { width: 140px; } /* Name */
-        .col-ph { width: 110px; } /* Phone */
-        .col-id { width: 140px; } /* Order ID */
-        .col-iv { width: 80px;  } /* Invoice */
-        .col-em { width: 180px; } /* Email */
-        .col-pl { width: 100px; } /* Platform */
-        .col-pd { width: 250px; } /* Product - Increased width but fixed */
-        .col-st { width: 160px; } /* State & Pin */
-
-        /* Truncation Rule for long Product names */
-        .truncate {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: block;
-        }
+        /* Strict Column Widths - Sum fits within standard screen */
+        .col-ts { width: 120px; } 
+        .col-nm { width: 130px; } 
+        .col-ph { width: 90px; } 
+        .col-id { width: 120px; } 
+        .col-iv { width: 60px; text-align: center; } 
+        .col-em { width: 140px; } 
+        .col-pl { width: 80px;  } 
+        .col-pd { width: 220px; } /* Product gets more space but truncated */
+        .col-st { width: 150px; } 
 
         tr:hover { background: #f8fbff; }
-        .platform-tag { background: #eee; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; }
-        .view-link { color: #2080b0; text-decoration: none; font-weight: bold; font-size: 11px; border: 1px solid #2080b0; padding: 2px 6px; border-radius: 4px; }
+        .platform-tag { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .view-link { color: #2080b0; text-decoration: none; font-weight: bold; font-size: 11px; border: 1px solid #2080b0; padding: 1px 6px; border-radius: 3px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h1>📦 Live Order Analytics</h1>
-        <div class="status-area">
+        <h1>📦 Live Analytics</h1>
+        <div style="display: flex; gap: 10px; align-items: center;">
             <span id="syncStatus" class="sync-pill">CONNECTING...</span>
-            <button class="refresh-btn" onclick="loadData()">Refresh Data</button>
+            <button class="refresh-btn" onclick="loadData()">Refresh</button>
         </div>
     </div>
 
     <div class="summary-grid">
-        <div class="stat-card bg-total"><h2 id="totalCount">0</h2><p>Total Submissions</p></div>
-        <div class="stat-card bg-amazon"><h2 id="amazonCount">0</h2><p>Amazon Orders</p></div>
-        <div class="stat-card bg-others"><h2 id="otherCount">0</h2><p>Other Platforms</p></div>
+        <div class="stat-card bg-total"><h2 id="totalCount">0</h2><p>Total</p></div>
+        <div class="stat-card bg-amazon"><h2 id="amazonCount">0</h2><p>Amazon</p></div>
+        <div class="stat-card bg-others"><h2 id="otherCount">0</h2><p>Others</p></div>
     </div>
 
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="🔍 Search Name, Product, State, Order ID..." onkeyup="filterData()">
-    </div>
-
-    <div class="chart-box">
-        <h3>Platform Breakdown</h3>
-        <canvas id="platformChart" style="max-height: 250px;"></canvas>
+        <input type="text" id="searchInput" placeholder="🔍 Search Name, Product, State..." onkeyup="filterData()">
     </div>
 
     <div class="table-wrap">
@@ -116,7 +109,6 @@
 <script>
     const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTecHMkMX9O7rf5hOQwvanr0HiG7VldFkP-flRPj3D16eFajd_udakNBQbjZofks3fpsUpMGtWNCYvf/pub?output=csv';
     let allOrders = [];
-    let pChart;
 
     async function loadData() {
         const status = document.getElementById('syncStatus');
@@ -125,26 +117,66 @@
             const text = await response.text();
             allOrders = parseCSV(text);
             updateUI(allOrders);
-            status.innerText = "ONLINE: " + new Date().toLocaleTimeString();
+            status.innerText = "ONLINE: " + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         } catch (err) { status.innerText = "OFFLINE"; }
     }
 
+    // --- NEW ROBUST CSV PARSER ---
+    // Handles commas inside Product names correctly!
     function parseCSV(text) {
-        const lines = text.trim().split('\n');
-        return lines.slice(1).map(line => {
-            const c = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-            return {
-                ts: (c[0]||"").replace(/"/g,'').trim(),
-                nm: (c[1]||"").replace(/"/g,'').trim(),
-                ph: (c[2]||"").replace(/"/g,'').trim(),
-                id: (c[3]||"").replace(/"/g,'').trim(),
-                iv: (c[4]||"").replace(/"/g,'').trim(),
-                em: (c[5]||"").replace(/"/g,'').trim(),
-                pl: (c[6]||"").replace(/"/g,'').trim(),
-                pd: (c[7]||"").replace(/"/g,'').trim(),
-                st: (c[8]||"").replace(/"/g,'').trim()
-            };
-        }).filter(r => r.nm !== "");
+        const rows = [];
+        let currentRow = [];
+        let currentVal = '';
+        let insideQuote = false;
+        
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i+1];
+            
+            // Handle Quotes
+            if (char === '"') {
+                if (insideQuote && nextChar === '"') { 
+                    currentVal += '"'; 
+                    i++; 
+                } else {
+                    insideQuote = !insideQuote;
+                }
+            } 
+            // Handle Comma (only if NOT inside quotes)
+            else if (char === ',' && !insideQuote) {
+                currentRow.push(currentVal);
+                currentVal = '';
+            } 
+            // Handle Newlines (only if NOT inside quotes)
+            else if ((char === '\r' || char === '\n') && !insideQuote) {
+                currentRow.push(currentVal);
+                if (currentRow.length > 0) rows.push(currentRow);
+                currentRow = [];
+                currentVal = '';
+                if (char === '\r' && nextChar === '\n') i++; // Skip \n if \r\n
+            } 
+            // Standard Character
+            else {
+                currentVal += char;
+            }
+        }
+        if (currentVal || currentRow.length > 0) {
+            currentRow.push(currentVal);
+            rows.push(currentRow);
+        }
+
+        // Map to your 9 columns strictly
+        return rows.slice(1).map(c => ({
+            ts: (c[0]||"").trim(),
+            nm: (c[1]||"").trim(),
+            ph: (c[2]||"").trim(),
+            id: (c[3]||"").trim(),
+            iv: (c[4]||"").trim(),
+            em: (c[5]||"").trim(),
+            pl: (c[6]||"").trim(),
+            pd: (c[7]||"").trim(), // Product
+            st: (c[8]||"").trim()  // State
+        })).filter(r => r.nm !== "");
     }
 
     function filterData() {
@@ -160,48 +192,23 @@
         tbody.innerHTML = data.map(r => `
             <tr>
                 <td class="col-ts" style="color:#888;">${r.ts}</td>
-                <td class="col-nm"><strong>${r.nm}</strong></td>
+                <td class="col-nm" title="${r.nm}"><strong>${r.nm}</strong></td>
                 <td class="col-ph">${r.ph}</td>
                 <td class="col-id" style="color:#2080b0;">${r.id}</td>
-                <td class="col-iv">${r.iv.startsWith('http') ? `<a href="${r.iv}" target="_blank" class="view-link">View</a>` : 'N/A'}</td>
-                <td class="col-em">${r.em}</td>
+                <td class="col-iv">${r.iv.startsWith('http') ? `<a href="${r.iv}" target="_blank" class="view-link">View</a>` : '-'}</td>
+                <td class="col-em" title="${r.em}">${r.em}</td>
                 <td class="col-pl"><span class="platform-tag">${r.pl}</span></td>
-                <td class="col-pd"><span class="truncate" title="${r.pd}">${r.pd}</span></td>
-                <td class="col-st"><strong>${r.st}</strong></td>
+                <td class="col-pd" title="${r.pd}">${r.pd}</td> <td class="col-st" title="${r.st}"><strong>${r.st}</strong></td>
             </tr>
         `).join('');
 
         if(!isFilt) {
-            const counts = {};
-            data.forEach(o => { counts[o.pl] = (counts[o.pl] || 0) + 1; });
+            const amz = data.filter(o => o.pl.toLowerCase().includes('amazon')).length;
             document.getElementById('totalCount').innerText = data.length;
-            document.getElementById('amazonCount').innerText = counts['Amazon'] || 0;
-            document.getElementById('otherCount').innerText = data.length - (counts['Amazon'] || 0);
-            renderChart(counts);
+            document.getElementById('amazonCount').innerText = amz;
+            document.getElementById('otherCount').innerText = data.length - amz;
         }
     }
-
-    function renderChart(counts) {
-        if (pChart) pChart.destroy();
-        const ctx = document.getElementById('platformChart').getContext('2d');
-        pChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: Object.keys(counts),
-                datasets: [{
-                    data: Object.values(counts),
-                    backgroundColor: Object.keys(counts).map(k => k === 'Amazon' ? '#ff9900' : '#6c757d'),
-                    borderRadius: 4
-                }]
-            },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
-
     window.onload = loadData;
 </script>
 </body>
